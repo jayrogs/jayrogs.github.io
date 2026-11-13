@@ -1,0 +1,653 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Backburners, live</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  /* THE DESK LOOK (2026-10-25 page tidy): the colours, sizes and tiles of hits.html / tested_rules.html */
+  :root{--bg:#111;--card:#161616;--line:#2a2a2a;--edge:#333;--fg:#ddd;--dim:#999;--up:#66bb6a;--dn:#ef5350;--amber:#ffb347;--link:#64b5f6;
+        --mono:ui-monospace,Consolas,monospace}
+  *{box-sizing:border-box}
+  body{background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,Segoe UI,sans-serif;margin:0;padding:0 16px 40px}
+  .wrap{max-width:1150px;margin:0 auto}
+  a{color:var(--link);text-decoration:none}
+  h1{font-size:22px;margin:18px 0 4px}
+  h2{font-size:17px;margin:26px 0 6px}
+  .sub{color:var(--dim);font-size:13px;margin:2px 0 6px}
+  .small{font-size:13px;color:var(--dim)}
+  input{background:#1e1e1e;border:1px solid var(--edge);color:var(--fg);border-radius:6px;padding:3px 8px;font:14px var(--mono);width:110px}
+  .tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:8px;margin:10px 0 4px;max-width:900px}
+  .tile{background:#1e1e1e;border:1px solid var(--edge);border-radius:6px;padding:6px 10px;color:var(--fg)}
+  .tile b{display:block;font-size:17px;color:#fff;font-family:var(--mono)}
+  .tile span{font-size:12px;color:var(--dim)}
+  .warn{color:var(--dn);border:1px solid var(--dn);border-radius:8px;padding:8px 12px;margin:8px 0;font-size:14px;font-weight:600}
+  .card{background:var(--card);border:1px solid var(--edge);border-radius:8px;padding:12px 14px;margin:12px 0}
+  .head{display:flex;gap:8px 28px;align-items:baseline;flex-wrap:wrap;margin-bottom:8px}
+  .name{font-size:22px;font-weight:700}
+  .kind{font-size:12px;color:var(--dim);margin-left:6px}
+  .big{display:flex;flex-direction:column}
+  .big .lab{font-size:12px;color:var(--dim)}
+  .big .val{font-size:22px;font-weight:700;font-family:var(--mono)}
+  .green{color:var(--up)} .red{color:var(--dn)} .amber{color:var(--amber)}
+  .more{font-size:13px;color:var(--dim);margin:2px 0 8px}
+  img{width:100%;max-width:100%;border-radius:6px;display:block}
+  .none{color:var(--dim);padding:10px 2px}
+  .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  table.log{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+  table.log th{color:var(--dim);font-weight:normal;text-align:left;padding:6px 4px;border-bottom:1px solid var(--line)}
+  table.log td{padding:6px 4px;border-bottom:1px solid var(--line);vertical-align:top}
+  table.log tr.row{cursor:pointer}
+  table.log tr.noterow td{color:var(--dim);padding-top:0}
+  table.log tr.row:hover{background:var(--card)}
+  table.log img{width:100%;border-radius:6px;margin:6px 0}
+  .marks{display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap}
+  .verdict{background:#1e1e1e;border:1px solid var(--edge);color:var(--dim);padding:7px 16px;border-radius:8px;cursor:pointer;user-select:none;font-size:14px}
+  .verdict.on[data-v=good]{background:rgba(102,187,106,.15);border-color:var(--up);color:var(--up)}
+  .verdict.on[data-v=bad]{background:rgba(239,83,80,.15);border-color:var(--dn);color:var(--dn)}
+  input.note{flex:1;min-width:180px;width:auto;font:14px system-ui,Segoe UI,sans-serif}
+  .saved{font-size:12px;color:var(--up);min-width:70px}
+  a.tv{font-size:12px;margin-left:8px}
+  @media (max-width:600px){
+    .head{gap:4px 16px}
+    .head>div:first-child{flex-basis:100%}
+    .name{font-size:20px}
+    .big .val{font-size:19px}
+  }
+</style></head>
+<body><script>
+window.PUB = 1;
+(function () { const real = window.fetch.bind(window), J = o => Promise.resolve(new Response(JSON.stringify(o), {status: 200, headers: {'Content-Type': 'application/json'}}));
+  window.fetch = function (u, opt) { u = String(u);
+    if (opt && opt.method === 'POST') return J({ok: false});
+    if (u.indexOf('/api/bb_live') === 0) return real('data.json?' + Date.now(), {cache: 'no-store'});
+    if (u.indexOf('/setups_info.json') === 0) return real('setups_info.json?' + Date.now());
+    if (u.indexOf('/api/tradenote?set=setupstext') === 0) return real('texts.json?' + Date.now());
+    if (u.indexOf('/api/') === 0) return J({});
+    return real(u, opt); }; })();
+</script>
+<div class="wrap">
+  <h1 id="h1">Backburners, live</h1>
+  <div class="sub" id="sub"></div>
+  <div class="sub">Cards sized for a stocks account of $ <input id="acct" type="number" min="0" step="1000">
+    <span id="lever">(borrowing and trades at once as the bot does)</span><span id="cbox"> &middot; crypto (no bot, sizes only) $
+    <input id="cacct" type="number" min="0" step="1000"></span></div>
+  <div class="sub" id="status">loading the live cards&hellip;</div>
+  <div id="warns"></div>
+  <div class="tiles" id="tiles"></div>
+
+  <div class="liveonly">
+  <h2 id="armedh">Waiting for the dip</h2>
+  <div class="sub">Show names whose price is within <select id="near"><option value="2">2%</option><option value="3">3%</option>
+    <option value="5" selected>5%</option><option value="8">8%</option><option value="10">10%</option><option value="999">any distance</option></select>
+    of the buy <span id="nearct"></span></div>
+  <div id="pile"></div>
+  <div id="armed"><div class="none">loading&hellip;</div></div>
+
+  <h2 id="inh">You're in</h2>
+  <div class="sub">Every position the bots really hold, every account.</div>
+  <div id="master"><div class="none">loading&hellip;</div></div>
+  </div>
+
+  <h2 id="openh">Your open trades: the plan</h2>
+  <div class="sub" id="opensub">The rules' card for each trade the account holds. Trades the rules took without the account are on <a href="/tracked">Tracked</a>.</div>
+  <div id="open"><div class="none">loading&hellip;</div></div>
+
+  <div class="liveonly">
+  <h2 id="futh">Futures waiting for the dip (Interactive Brokers, practice money)</h2>
+  <div id="futwarn"></div>
+  <div id="fut"><div class="none">loading&hellip;</div></div>
+  </div>
+
+  <h2 id="ledh">Every trade so far</h2>
+  <div class="sub" id="ledsub">Trades the account was in. Tap a row for its chart.</div>
+  <div id="ledger"><div class="none">loading&hellip;</div></div>
+
+  <div class="sub" id="foot" style="margin-top:28px"></div>
+</div>
+<script>
+const TRACKED = location.pathname.replace(/\/+$/, '') === '/tracked';
+if (TRACKED) {
+  document.title = 'Tracked, not traded';
+  document.querySelectorAll('.liveonly').forEach(e => e.style.display = 'none');
+  document.getElementById('h1').textContent = 'Tracked, not traded';
+  document.getElementById('sub').textContent = "The rules' trades the live account is not in, followed to their end for the record (crypto too: there is " +
+    "no crypto bot). The cards come from the bot's scan.";
+  document.getElementById('openh').textContent = "Open: the rules hold these, the account does not";
+  document.getElementById('opensub').innerHTML = 'Followed to their end for the record. Each card says why the account is not in it.';
+  document.getElementById('ledh').textContent = 'Every tracked trade';
+  document.getElementById('ledsub').textContent = "The rules' trades the account was not in (and every crypto trade: no crypto bot). Tap a row for its chart.";
+}
+const SETUPS = true;
+if (SETUPS) {
+  document.title = 'Setups';
+  document.getElementById('h1').textContent = 'Setups waiting for the dip';
+  document.getElementById('sub').textContent = 'Stocks up 18% or more in 20 trading days to a new high that have not dipped yet, with the buy prices. Setups only: no account, no trades.';
+  { const ac = document.getElementById('acct'); if (ac && ac.parentElement) ac.parentElement.style.display = 'none'; }
+  { const ah = document.getElementById('armedh'), oh = document.getElementById('openh'), os_ = document.getElementById('opensub'), o = document.getElementById('open');
+    oh.textContent = 'Live now: the dip is on'; os_.textContent = 'Setups that already reached the first buy. They stay here until the trade ends.';
+    [oh, os_, o].forEach(e => ah.parentElement.insertBefore(e, ah)); }
+  { const ex = document.createElement('details'); ex.className = 'card'; ex.open = true; ex.style.margin = '10px 0';
+    ex.innerHTML = `<summary style="cursor:pointer"><b>How to read this page</b></summary>
+      <div class="more"><b>The setup.</b> A stock's daily close is 18% or more above its close 20 trading days ago, the high of those 20 days is clearly above the high of the 60 days before them (new ground, not a climb back to an old price), the weekly trend is up, and it has not dipped yet. The dip buy is the price where the hourly RSI (14) would touch 30. Lower buys wait where it would touch 29, 28, 27, 25, 24, 23, 22 and 20.</div>
+      <div class="more"><b>Sell and stop.</b> The plan sells everything when price gets back to the hourly 26 EMA. The stop sits 6 normal hourly bars under the buy.</div>
+      <div class="more"><b>Wild or calm.</b> Take the stock's normal hourly bar: the average height of its last 14 hourly bars, gaps counted. Divide by the price. 1.9% or more = WILD. Example: a $50 stock whose normal hourly bar is $1.20 is 2.4%, so wild. In 21 years of tests, dips in wild stocks paid more per trade than dips in calm ones. They also swing harder both ways.</div>
+      <div class="more"><b>What the bot knows.</b> Each card lists things the rules look at but do not filter on: the size of the run, how much the stock trades a day, today's move, the next report day, and the funds it moves with. A dip the morning after a report tends to go deeper.</div>
+      <div class="more"><b>Fresh top.</b> The 20-day high is under 5 trading days old. In the tests, wild stocks with a fresh top were the better dips.</div>
+      <div class="more"><b>Not advice.</b> These are the setups a rule set is watching, with test results behind it. Nothing here says a trade will work.</div>
+      <div class="more"><b>When the dip is not bought.</b> Company news: a big gap at the open that its group funds did not share (that day and the next). The last hour of the day. A day when 15 or more stocks hit their dip in 3 days (the whole market is dumping). Names ruled out: small drug makers waiting on a trial result, funds that hold a coin, inverse funds, a buyout about to close, a fresh SEC red flag, a stock that dumped 20% in a day and then went sideways. And when the account already holds 10 trades.</div>
+      <div class="more"><b>Liquidity.</b> The tag shows the dollars the stock trades a day, a 20-day average. A setup needs $30M a day or more; smaller names are not shown. LIQUID = $100M or more.</div>`;
+    document.getElementById('openh').before(ex); }
+  { const box = document.createElement('div'); box.id = 'coinbox';
+    box.innerHTML = '<h2 id="coinh">Coins</h2><div class="sub" id="coinsub">The same setup on coins: up 18% or more in 20 days to new ground, weekly trend up, then the dip to hourly RSI 30. Coins trade all day, every day; days are counted in UTC.</div><div id="coins"><div class="none">loading&hellip;</div></div>';
+    document.getElementById('armed').after(box);
+    const cp = v => { v = +v; if (!(v > 0)) return '-'; const d = v >= 1000 ? 0 : v >= 10 ? 2 : v >= 1 ? 3 : v >= 0.01 ? 4 : 6;
+      return '$' + (d > 4 ? v.toPrecision(4).replace(/\.?0+$/, '') : v.toLocaleString('en-US', {minimumFractionDigits: d, maximumFractionDigits: d})); };
+    const pill = (txt, col) => `<span style="display:inline-block;margin:0 6px 4px 0;padding:2px 9px;border-radius:10px;font-size:12px;font-weight:700;letter-spacing:.3px;border:1px solid ${col};background:${col}26;color:${col}">${txt}</span>`;
+    const tags = (c, W) => pill((c.wild >= W ? 'WILD ' : 'CALM ') + c.wild.toFixed(1) + '%', c.wild >= W ? '#3fb950' : '#8b949e') +
+      pill((c.top_age < 5 ? 'FRESH TOP ' : 'STALE TOP ') + c.top_age + 'd', c.top_age < 5 ? '#3fb950' : '#8b949e') +
+      (c.vol_usd ? pill((c.vol_usd >= 100e6 ? 'LIQUID ' : c.vol_usd >= 30e6 ? 'TRADES ' : 'THIN ') + '$' + (c.vol_usd >= 10e6 ? Math.round(c.vol_usd / 1e6) : (c.vol_usd / 1e6).toFixed(1)) + 'M A DAY', c.vol_usd >= 100e6 ? '#3fb950' : c.vol_usd >= 30e6 ? '#8b949e' : '#d29922') : '') +
+      (c.dip > 1 ? pill('DIP ' + c.dip + ' OF THIS RUN', '#8b949e') : '');
+    const vol = v => v >= 1e9 ? '$' + (v / 1e9).toFixed(1) + 'B' : v >= 1e6 ? '$' + Math.round(v / 1e6) + 'M' : '$' + Math.round(v / 1e3) + 'K';
+    const lower = c => Object.keys(c.next || {}).sort((a, b) => b - a).map(L => `${cp(c.next[L])} (RSI ${L})`).join(' &middot; ');
+    const draw = d => { const W = d.wild_line || 3, el = document.getElementById('coins'); let h = '';
+      const old = (Date.now() / 1000 - (d.epoch || 0)) > 3600;
+      (d.open || []).forEach(c => { h += `<div class="card"><div class="head">
+          <div><span class="name">${c.sym}</span><span class="kind">coin &middot; live now: the dip is on</span></div>
+          <div class="big"><span class="lab">first buy (RSI 30)</span><span class="val green">${cp(c.buy)}</span></div>
+          <div class="big"><span class="lab">price now</span><span class="val">${cp(c.price)}</span></div>
+          <div class="big"><span class="lab">sale line (hourly 26 EMA)</span><span class="val">${cp(c.sale)}</span></div></div>
+        <div class="more">at the first buy: ${tags(c, W)}</div>
+        <div class="more">first buy ${c.first} UTC, ${c.hours} hours ago &middot; deepest buy reached: RSI ${c.deepest} &middot; stop ${cp(c.stop)}</div>
+        ${lower(c) ? `<div class="more">lower buys still waiting: ${lower(c)}</div>` : ''}
+        <div class="more">+${c.run_pct.toFixed(0)}% in the 20 days before the first buy &middot; Daily Volume ~${vol(c.vol_usd)}</div></div>`; });
+      (d.armed || []).forEach(c => { h += `<div class="card"><div class="head">
+          <div><span class="name">${c.sym}</span><span class="kind">coin &middot; ${c.away.toFixed(1)}% above its buy</span></div>
+          <div class="big"><span class="lab">buy at (RSI 30)</span><span class="val green">${cp(c.buy)}</span></div>
+          <div class="big"><span class="lab">price now</span><span class="val">${cp(c.price)}</span></div></div>
+        <div class="more">${tags(c, W)}</div>
+        ${lower(c) ? `<div class="more">lower buys: ${lower(c)}</div>` : ''}
+        <div class="more">+${c.run_pct.toFixed(0)}% in the last 20 days &middot; Daily Volume ~${vol(c.vol_usd)} &middot; the buy price moves every hour</div></div>`; });
+      if (!h) { const cl = (d.closest || []).map(c => `${c.sym} ${c.run_pct >= 0 ? '+' : ''}${c.run_pct.toFixed(0)}%`).join(' &middot; ');
+        h = `<div class="none">No coin is in a run right now (${d.checked} checked). A setup needs +18% in 20 days.${cl ? ' The closest: ' + cl + '.' : ''}</div>`; }
+      el.innerHTML = h + `<div class="more" style="opacity:.7">coins checked ${d.updated}${old ? ' <span class="red">(over an hour old)</span>' : ''} &middot; WILD for a coin = a normal hourly bar of ${W}% of the price or more</div>`; };
+    const loadCoins = () => fetch((window.PUB ? 'setups_coins.json?' : '/setups_coins.json?') + Date.now()).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(draw).catch(e => { document.getElementById('coins').innerHTML = '<div class="none red">coins could not be loaded (' + e.message + ')</div>'; });
+    window.drawCoins = draw;
+    loadCoins(); setInterval(loadCoins, 5 * 60 * 1000); }
+  { const EDIT = /[?&]edit=1/.test(location.search), SET = 'setupstext';
+    const els = {h1: document.getElementById('h1'), sub: document.getElementById('sub'), openh: document.getElementById('openh'),
+      opensub: document.getElementById('opensub'), armedh: document.getElementById('armedh')};
+    document.querySelectorAll('details.card > .more').forEach((e, i) => { els['how' + (i + 1)] = e; });
+    const show = (k, txt) => { const e = els[k]; if (!e) return;
+      if (k.slice(0, 3) === 'how') { const m = txt.match(/^(.*?[.:])(\s[\s\S]*)?$/); e.innerHTML = m ? '<b>' + esc(m[1]) + '</b>' + esc(m[2] || '') : esc(txt); }
+      else e.textContent = txt; };
+    const badge = document.createElement('div'); badge.style.cssText = 'position:fixed;top:8px;right:8px;z-index:99;padding:6px 12px;border-radius:6px;font-weight:700;display:none';
+    document.body.appendChild(badge);
+    const say = (ok, w) => { badge.textContent = w; badge.style.display = 'block'; badge.style.background = ok ? '#1d5f2a' : '#a00'; badge.style.color = '#fff';
+      if (ok) setTimeout(() => { badge.style.display = 'none'; }, 2500); };
+    const save = (k, txt) => fetch('/api/tradenote', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({set: SET, n: k, note: txt})})
+      .then(r => r.json().then(j => { if (!r.ok || !j.ok) throw new Error('server said ' + r.status); say(true, 'saved'); }))
+      .catch(e => say(false, 'NOT SAVED: ' + (e.message || e)));
+    fetch('/api/tradenote?set=' + SET + '&' + Date.now()).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }).then(j => {
+      Object.keys(j).forEach(k => { if (k === 'notes' || !els[k]) return; if (j[k]) show(k, j[k]); else if (!EDIT) els[k].style.display = 'none'; });
+      if (!EDIT) return;
+      Object.keys(els).forEach(k => { const e = els[k]; if (!e) return; e.contentEditable = 'true'; e.style.outline = '1px dashed #c90'; e.style.outlineOffset = '3px';
+        let was = e.innerText; e.addEventListener('blur', () => { const now = e.innerText.trim(); if (now !== was.trim()) { was = now; save(k, now); show(k, now); } }); });
+      const box = document.createElement('div'); box.className = 'card'; box.style.borderColor = '#c90';
+      box.innerHTML = '<b>Edit mode.</b> Click any text with a dashed line, type, then click away: it saves. Anything else you want changed (card wording, order, what to add or drop), write it here:' +
+        '<textarea id="ednotes" style="width:100%;height:110px;margin-top:8px;background:#111;color:#eee;border:1px solid #555;padding:8px"></textarea>';
+      document.getElementById('h1').before(box); const ta = document.getElementById('ednotes'); ta.value = j.notes || ''; let wasN = ta.value;
+      ta.addEventListener('blur', () => { if (ta.value !== wasN) { wasN = ta.value; save('notes', ta.value); } });
+      const deco = box_ => box_.querySelectorAll(':scope > .card').forEach(c => { if (c.dataset.ed) return; c.dataset.ed = '1';
+        const nm = c.querySelector('.name'); if (!nm) return; const key = 'card_' + nm.innerText.trim();
+        const body = document.createElement('div'); while (c.firstChild) body.appendChild(c.firstChild); c.appendChild(body);
+        body.contentEditable = 'true'; body.style.outline = '1px dashed #c90'; body.style.outlineOffset = '4px'; const orig = body.innerText;
+        const sv = document.createElement('div'); sv.style.cssText = 'white-space:pre-wrap;margin-top:10px;padding:8px;border:1px solid #c90;color:#ffe9b0;font-size:13px' + (j[key] ? '' : ';display:none');
+        sv.textContent = j[key] ? 'YOUR SAVED EDIT OF THIS CARD:\n' + j[key] : ''; c.appendChild(sv);
+        body.addEventListener('focusout', () => { const now = body.innerText.trim(); if (now === orig.trim() || now === (j[key] || '')) return;
+          j[key] = now.slice(0, 1990); save(key, j[key]); sv.style.display = 'block'; sv.textContent = 'YOUR SAVED EDIT OF THIS CARD:\n' + j[key]; }); });
+      ['open', 'armed'].forEach(id => { const b_ = document.getElementById(id); deco(b_); new MutationObserver(() => {
+        const ae = document.activeElement; deco(b_); }).observe(b_, {childList: true}); });
+      box.insertAdjacentHTML('beforeend', '<div class="more">The stock cards can be typed in too: change a card the way you want it to read, click away, and it saves. Your version shows in amber under the card.</div>');
+    }).catch(e => { if (EDIT) say(false, 'EDITS NOT LOADED: ' + (e.message || e)); }); }
+  window.INFO = null;
+  const loadInfo = () => fetch('/setups_info.json?' + Date.now()).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+    .then(j => { window.INFO = j; if (typeof DATA !== 'undefined' && DATA && typeof render === 'function') render(); }).catch(e => { window.INFO = {error: String(e.message || e)}; });
+  loadInfo(); setInterval(loadInfo, 900000);
+  ['pile', 'tiles', 'warns', 'inh', 'master', 'futh', 'futwarn', 'fut', 'ledh', 'ledsub', 'ledger', 'status'].forEach(k => { const e = document.getElementById(k); if (e) e.style.display = 'none'; });
+  const ih = document.getElementById('inh'); if (ih && ih.nextElementSibling) ih.nextElementSibling.style.display = 'none';
+}
+const EVERY_CARDS = 60000, EVERY_FUT = 60000, EVERY_MASTER = 20000;
+const ACCT = r => r && r.kind !== 'crypto' && r.bot === 'in';
+const SHOW = r => TRACKED ? !ACCT(r) : ACCT(r);
+const esc = x => String(x == null ? '' : x).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const $ = s => document.querySelector(s);
+const money = v => '$' + Math.round(v).toLocaleString();
+const pr = v => v >= 100 ? v.toFixed(2) : v >= 1 ? v.toFixed(3) : v.toPrecision(4);
+const mk = k => ({stock: 'stock', etf: 'fund', crypto: 'crypto', futures: 'future'}[k] || k);
+const sgn = v => (v >= 0 ? '+' : '') + v.toFixed(2) + '%';
+const WARN = {};
+function warn(k, html) {
+  if (html) WARN[k] = html; else delete WARN[k];
+  $('#warns').innerHTML = Object.values(WARN).map(h => `<div class="warn">${h}</div>`).join('');
+}
+const TILE = {};
+function tiles() {
+  const t = TILE, h = [];
+  const tl = (href, val, lab, cls) => `<a class="tile" href="${href}"><b class="${cls || ''}">${val}</b><span>${lab}</span></a>`;
+  if (!TRACKED && t.armed != null) h.push(tl('#armedh', t.armed, 'setups waiting for the dip'));
+  if (!TRACKED && t.held != null) h.push(tl('#inh', t.held, t.heldMiss ? '<span class="red">positions held (an account did NOT load)</span>' : 'positions held, every account'));
+  if (t.open != null) h.push(tl('#openh', t.open, TRACKED ? 'open, the rules only' : t.openMiss ? '<span class="red">open trades listed, ' + t.openMiss + ' NOT held by the account</span>' : 'open trades, live account'));
+  if (t.closed != null) h.push(tl('#ledh', `${t.closed} <span style="font-size:12px;color:var(--dim)">(${t.won} won)</span>`,
+    `closed since ${t.since}, ${TRACKED ? 'tracked' : 'live account'}`));
+  if (t.avg != null) h.push(tl('#ledh', sgn(t.avg), 'average closed trade, after costs', t.avg >= 0 ? 'green' : 'red'));
+  $('#tiles').innerHTML = h.join('');
+}
+const FIL = x => x && x.filler ? ' <span class="kind amber">&middot; filler</span>' : '';
+let DATA = null;
+let HELD = null;
+const notHeld = t => !TRACKED && HELD && t.kind !== 'crypto' && t.kind !== 'futures' && !HELD.has(String(t.sym));
+const NOTHELD = '<div class="warn" style="margin:6px 0 0">the account does not hold this: no position in it at Alpaca or Interactive Brokers right now</div>';
+let BOT = null;
+const ACCT_KEY = SETUPS ? 'bb_setups_acct' : 'bb_acct2';      // the setups page never shows the real account's size: its own box, $10,000 to start
+function acct() { let v = NaN; try { v = parseFloat(localStorage.getItem(ACCT_KEY)); } catch (e) {} return v || (!SETUPS && BOT && BOT.equity) || (SETUPS ? 10000 : 100000); }
+function cacct() { let v = 100000; try { v = parseFloat(localStorage.getItem('bb_cacct')) || 100000; } catch (e) {} return v; }
+function bucket(kind) {
+  const A = DATA.account || {};
+  return kind === 'crypto' ? cacct() / (A.crypto_buckets || 3) : acct() * ((BOT && BOT.lever) || 1) / ((BOT && BOT.seats) || A.buckets || 5);
+}
+function lw(x, lv) {
+  const d = x && x.dollars; if (!d || x.kind === 'crypto') return 1;
+  const b0 = d[30] || d['30'] || 1, v = d[lv] ?? d[String(lv)];
+  return (v == null ? (lv === 98 ? b0 : 0) : v) / b0;
+}
+function sizes(kind) {
+  const A = DATA.account || {};
+  return kind === 'crypto' ? [1, 1, null] : [A.first_size || 1, A.later_size || 1, A.name_cap == null ? null : A.name_cap];
+}
+function tv(x) {
+  const s = x.kind === 'crypto' ? 'COINBASE:' + x.sym + 'USD' : String(x.sym).replace('-', '.');
+  return ` <a class="tv" href="https://www.tradingview.com/chart/?symbol=${encodeURIComponent(s)}&interval=60" target="_blank" rel="noopener">TradingView</a>`;
+}
+function aged(x) {
+  return x.data_age_h > 2 && (x.kind === 'futures' || x.kind === 'crypto')
+    ? ` <span class="amber" style="font-size:12px">data ${x.data_age_h.toFixed(0)}h old</span>` : '';
+}
+const marks = id => `<div class="marks" data-id="${id}">
+      <span class="verdict" data-v="good">good</span><span class="verdict" data-v="bad">bad</span>
+      <input class="note" placeholder="comment (optional)"><span class="saved"></span></div>`;
+let NOTES = {};
+function wire() {
+  document.querySelectorAll('.marks').forEach(m => {
+    const id = m.dataset.id, prev = String(NOTES[id] || ''), i = prev.indexOf(' | ');
+    const v = (i < 0 ? prev : prev.slice(0, i)).trim();
+    m.querySelector('.note').value = i < 0 ? '' : prev.slice(i + 3);
+    m.querySelectorAll('.verdict').forEach(b => b.classList.toggle('on', b.dataset.v === v));
+    const save = () => {
+      const on = m.querySelector('.verdict.on'), txt = m.querySelector('.note').value;
+      const body = (on ? on.dataset.v : '') + (txt ? ' | ' + txt : '');
+      const sp = m.querySelector('.saved');
+      const fail = () => { sp.textContent = 'NOT SAVED'; sp.style.color = 'var(--dn)'; };
+      fetch('/api/tradenote', {method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({set: 'bblive', n: id, note: body})})
+        .then(r => r.ok ? r.json() : null).then(j => {
+          if (!j || !j.ok) return fail();
+          NOTES[id] = body; sp.textContent = 'saved'; sp.style.color = '';
+          setTimeout(() => { if (sp.textContent === 'saved') sp.textContent = ''; }, 1500);
+        }).catch(fail);
+    };
+    m.querySelectorAll('.verdict').forEach(b => b.onclick = () => {
+      const was = b.classList.contains('on');
+      m.querySelectorAll('.verdict').forEach(x => x.classList.remove('on'));
+      if (!was) b.classList.add('on');
+      save();
+    });
+    let t = null;
+    m.querySelector('.note').oninput = () => { clearTimeout(t); t = setTimeout(save, 600); };
+  });
+}
+function contracts(x, B, px) {
+  const c = x.contract;
+  if (!c) return '';
+  const one = px * c.mult, n = Math.floor(B / one), mx = Math.floor(B / (one * c.margin));
+  const what = c.name + (c.code ? ` (${c.code})` : '');
+  if (n < 1) return `<div class="more amber">one ${what} is ${money(one)} &mdash; more than a ${money(B)} bucket. The margin
+    (about ${money(one * c.margin)}) would allow ${mx}.</div>`;
+  return `<div class="more">buy <b>${n} ${what}</b> &mdash; ${money(n * one)} worth. The margin would allow up to ${mx}.</div>`;
+}
+function howMany(x, B, px) {
+  const c = x.contract, n = Math.floor(B / (px * c.mult));
+  return n >= 1 ? `${n} ${c.code || 'contracts'}` : '<span class="amber">too big</span>';
+}
+function impact(r) {
+  if (!r.adv_buy || !r.sig_buy) return 0;
+  const B = bucket(r.kind), share = (DATA.account && DATA.account.max_share_of_day) || 0.01;
+  const dollars = Math.min(B, share * r.adv_buy);
+  return 2 * 100 * 0.45 * r.sig_buy * Math.sqrt(dollars / r.adv_buy);
+}
+const realNow = t => t.pct_now - (t.cost || 0) - impact(t);
+const realDone = r => (r.result_real ?? r.result) - impact(r);
+function capDay(x, want) {
+  const share = (DATA.account && DATA.account.max_share_of_day) || 0.01;
+  return x.adv ? Math.min(want, share * x.adv) : want;
+}
+const sharePct = () => +(100 * ((DATA.account && DATA.account.max_share_of_day) || 0.01)).toFixed(2);   // the 1% rule's own number
+const sizeWord = m => m === 0.5 ? 'half size' : `${m}x size`;
+function render() {
+  if (!DATA) return;
+  { const ae = document.activeElement;
+    if (ae && ae.isContentEditable && ae.closest && ae.closest('#armed,#open')) return; }
+  const mins = Math.round((Date.now() - (DATA.updated_epoch ? DATA.updated_epoch * 1000 : new Date(String(DATA.updated).replace(' ', 'T')).getTime())) / 60000);
+  $('#status').innerHTML = isFinite(mins) ? `cards updated <span class="${mins > 30 ? 'amber' : ''}">${mins} min ago</span>` : '<span class="red">cards: no update time in the file</span>';
+  const cap = (DATA.account && DATA.account.crypto_max_buckets) || 3;
+  const PU = DATA.pileup || {};
+  $('#pile').innerHTML = PU.on
+    ? `<div class="card" style="border-color:var(--dn);color:var(--dn)"><b>PILE-UP: ${PU.count} stock setups in the last 3 days.</b>
+       The whole market is dumping, so no NEW stock trade is started until the count is back under ${PU.limit}. Trades already held carry on.</div>`
+    : (PU.count != null ? `<div class="sub">stock setups in the last 3 days: ${PU.count} (at ${PU.limit} no new stock trade is started)</div>` : '');
+  const BP = DATA.buy_plan;
+  if (BP && BP.dollars) $('#pile').innerHTML += `<div class="sub amber">stock buy plan "${esc(BP.name)}": RSI 30 = 1 bucket, ` +
+    BP.bids.map(L => `RSI ${L} = ${(BP.dollars[L] ?? BP.dollars[String(L)] ?? 0) / (BP.dollars[30] || BP.dollars['30'] || 1)}`).join(', ') +
+    `, retest = ${(BP.dollars[98] ?? BP.dollars['98'] ?? 1) / (BP.dollars[30] || BP.dollars['30'] || 1)}</div>`;
+  const farStop = a => { const f = DATA.account && DATA.account.far_stop_half; const sp = a.stop_plan && a.stop_plan[0];
+    if (!f || !sp || a.kind === 'crypto' || !(a.buy_at > 0)) return null; const d = 100 * (a.buy_at - sp[2]) / a.buy_at;
+    return d >= f[0] ? { mult: f[1], away: d, at: f[0] } : null; };
+  const fillerMax = BOT && BOT.filler && BOT.filler.max;
+  const NKEY = SETUPS ? 'bb_setups_near' : 'bb_near', NDEF = SETUPS ? 999 : 5;
+  let NEAR = NDEF; try { NEAR = +(localStorage.getItem(NKEY) || NDEF); } catch (e) {}
+  const nsel = $('#near'); if (nsel) { nsel.value = String(NEAR); nsel.onchange = () => { try { localStorage.setItem(NKEY, nsel.value); } catch (e) {} render(); }; }
+  const RD = a => ((window.INFO || {}).reads || {})[a.sym] || {};       // tools/setups_info.py: wild, top_age, wk_stretch from the server's own bars
+  const WILDN = a => { if (RD(a).wild != null) return RD(a).wild; const s = (a.stop_plan || [])[0]; return s && a.buy_at > 0 ? 100 * (s[1] - s[2]) / 6 / a.buy_at : null; };
+  let WMODE = 'wild'; try { WMODE = localStorage.getItem('bb_setups_wild') || 'wild'; } catch (e) {}
+  if (SETUPS && !$('#wsel')) { const s = document.createElement('span');
+    s.innerHTML = ' &middot; show <select id="wsel"><option value="wild">wild names only (1.9%+)</option><option value="wildfresh">wild + a fresh top (under 5 days)</option><option value="all">all names</option></select>';
+    $('#nearct').after(s); $('#wsel').onchange = () => { try { localStorage.setItem('bb_setups_wild', $('#wsel').value); } catch (e) {} render(); }; }
+  if (SETUPS) $('#wsel').value = WMODE;
+  const PILL = (txt, col) => `<span style="display:inline-block;margin:0 6px 4px 0;padding:2px 9px;border-radius:10px;font-size:12px;font-weight:700;letter-spacing:.3px;` +
+    `${col === 'g' ? 'background:#1d5f2a;color:#d8ffd8' : col === 'a' ? 'background:#7a5200;color:#ffe9b0' : col === 'r' ? 'background:#7a1f1f;color:#ffd6d6' : 'background:#333;color:#bbb'}">${txt}</span>`;
+  const BADGES = (sym, r, day0, adv) => { if (!SETUPS) return ''; const I = window.INFO || {}; let h = '';
+    if (r.wild != null) h += PILL(`${r.wild >= 1.9 ? 'WILD' : 'CALM'} ${r.wild.toFixed(1)}%`, r.wild >= 1.9 ? 'g' : '');
+    if (r.top_age != null) h += PILL(`${r.top_age < 5 ? 'FRESH TOP' : 'STALE TOP'} ${r.top_age === 0 ? 'today' : r.top_age + 'd'}`, r.top_age < 5 ? 'g' : '');
+    if (adv) h += PILL(`${adv >= 100e6 ? 'LIQUID' : adv >= 30e6 ? 'TRADES' : 'THIN'} $${Math.round(adv / 1e6)}M A DAY`, adv >= 100e6 ? 'g' : adv >= 30e6 ? '' : 'a');
+    const ref = new Date(day0 || new Date().toISOString().slice(0, 10)), nx = (I.reports || {})[sym], pa = (I.past || {})[sym];
+    const tm = x => x === 'after' ? ' after the close' : x === 'before' ? ' before the open' : '';
+    if (pa && pa.day) { const d = Math.round((ref - new Date(pa.day)) / 864e5); if (d >= 0 && d <= 4) h += PILL(`JUST REPORTED ${pa.day.slice(5)}${tm(pa.timing)}`, 'r'); }
+    if (!day0 && nx && nx.day) { const d = Math.round((new Date(nx.day) - ref) / 864e5); if (d >= 0 && d <= 7) h += PILL(`REPORT ${nx.day.slice(5)}${tm(nx.timing)}`, 'a'); }
+    return h ? `<div style="margin:6px 0 2px">${day0 ? '<span class="small" style="margin-right:6px">at the first buy:</span>' : ''}${h}</div>` : ''; };
+  const WILDTAG = a => '';
+  const REPORT = a => { const I = window.INFO; if (!I) return 'loading'; if (I.error) return '<span class="red">REPORT DATES NOT LOADED</span>';
+    const r = (I.reports || {})[a.sym], s = (I.status || {})[a.sym] || '';
+    if (r && r.day) return `<b>${r.day}</b> ${r.timing === 'before' ? 'before the open' : r.timing === 'after' ? 'after the close' : ''} (confirmed)`;
+    const g = s.match(/(\d{4}-\d\d-\d\d) is only a guess/); if (g) return `about ${g[1]} (not confirmed)`;
+    if (/no report date ahead/.test(s)) return 'none on the calendar for the next 3 months';
+    return s ? esc(s.replace(/^no sale( yet)?: /, '')) : 'not known'; };
+  const KNOW = (a, far, thin) => { if (!SETUPS) return '';
+    const up20 = RD(a).run_pct;
+    return `<div class="more">${up20 == null ? '' : `<b>${up20 >= 0 ? '+' : ''}${up20}%</b> in the last 20 trading days`}</div>
+      <div class="more">next earnings report: ${REPORT(a)}</div>` +
+      (thin ? `<div class="more amber">not one of the 1,000 busiest US stocks today: the bot buys this one at half size</div>` : '') +
+      (far ? `<div class="more amber">its stop is ${far.away.toFixed(0)}% under the buy: the bot buys this one at half size</div>` : '') +
+      (a.filler ? `<div class="more amber">a small name ($20M-$30M traded a day): the bot only takes it when no bigger setup needs the seat</div>` : ''); };
+  let SHOWN = DATA.armed.filter(a => a.away == null || Math.abs(a.away) <= NEAR);
+  if (SETUPS) { SHOWN = SHOWN.filter(a => !a.filler && !(a.adv && a.adv < 30e6)); if (WMODE !== 'all') SHOWN = SHOWN.filter(a => WILDN(a) >= 1.9); if (WMODE === 'wildfresh') SHOWN = SHOWN.filter(a => RD(a).top_age != null && RD(a).top_age < 5); SHOWN.sort((x, y) => (WILDN(y) || 0) - (WILDN(x) || 0)); }
+  if ($('#nearct')) $('#nearct').textContent = `(${SHOWN.length} of ${DATA.armed.length} shown)`;
+  $('#armed').innerHTML = SHOWN.length ? SHOWN.map(a => {
+    const far = farStop(a);
+    const rh = DATA.account && DATA.account.rank_half;
+    const thin = !!(rh && a.kind !== 'crypto' && a.top1000 === false);
+    const [F1, L1, NC] = sizes(a.kind);
+    const B0 = bucket(a.kind) * (far ? far.mult : 1) * (thin ? rh[1] : 1);
+    const B = B0 * F1;
+    let used = 1, inName = capDay(a, B);
+    const more = (a.later || []).map(([lv, px]) => {
+      let m = a.dollars ? (a.dollars[lv] || a.dollars[String(lv)] || 0) / (a.dollars[30] || a.dollars['30'] || 1) : 1;
+      if (a.kind === 'crypto') { m = Math.max(0, Math.min(m, cap - used)); used += m;
+        return m > 0 ? (a.contract ? `the same again at ${pr(px)}` : `${money(capDay(a, B * m))} at ${pr(px)}`) : ''; }
+      let d = capDay(a, B0 * L1 * lw(a, lv));
+      if (NC != null) d = Math.max(0, Math.min(d, NC * acct() - inName));
+      inName += d;
+      return d > 0 ? (a.contract ? `the same again at ${pr(px)} (RSI ${lv})` : `${money(d)} at ${pr(px)} (RSI ${lv})`)
+                   : `none at ${pr(px)} (RSI ${lv}): one stock already at the limit`;
+    }).filter(Boolean);
+    if (a.kind !== 'crypto') {
+      let d = capDay(a, B0 * L1 * lw(a, 98));
+      if (NC != null) d = Math.max(0, Math.min(d, NC * acct() - inName));
+      more.push(d > 0 ? `${money(d)} on the retest of the low` : `none on the retest of the low: one stock already at the limit`);
+    }
+    const moreTxt = SETUPS ? (a.later || []).map(([lv, px]) => `${pr(px)} (RSI ${lv})`).join(' &middot; ') : more.join(' &middot; ');
+    return `<div class="card">
+      <div class="head">
+        <div><span class="name">${a.sym}</span><span class="kind">${mk(a.kind)}${a.where ? ' &middot; on ' + a.where : ''}</span>${FIL(a)}${aged(a)}${WILDTAG(a)}${tv(a)}</div>
+        <div class="big"><span class="lab">buy at (RSI 30)</span><span class="val green">${pr(a.buy_at)}</span></div>
+        ${SETUPS ? '<!--' : ''}<div class="big"><span class="lab">how much, first buy</span><span class="val">${a.contract ? howMany(a, B, a.buy_at) : money(capDay(a, B))}</span></div>${SETUPS ? '-->' : ''}
+        <div class="big"><span class="lab">price has to drop</span><span class="val ${a.away > -3 ? 'amber' : ''}">${a.away == null ? '?' : Math.abs(a.away).toFixed(1) + '%'}</span></div>
+      </div>
+      ${BADGES(a.sym, RD(a), null, a.adv)}
+      ${SETUPS ? '<!--' : ''}${a.filler ? `<div class="more amber">filler: trades ${money(a.adv)} a day ($20M-$30M) -- only a seat no $30M+ setup can use,${fillerMax ? ` at most ${fillerMax} open,` : ''} sold for a $30M+ setup that needs the seat</div>` : ''}
+      ${far ? `<div class="more amber">${sizeWord(far.mult)}: its first safety stop is ${far.away.toFixed(0)}% under the buy (${far.at}%+ = ${sizeWord(far.mult)}, every buy of it)</div>` : ''}
+      ${thin ? `<div class="more amber">${sizeWord(rh[1])}: not one of the 1,000 busiest US stocks today (every buy of it)</div>` : ''}
+      ${contracts(a, B, a.buy_at)}
+      ${a.adv && capDay(a, B) < B ? `<div class="more amber">capped by the ${sharePct()}% rule: ${a.sym} trades about ${money(a.adv)} a day,
+        so one order is at most ${money(capDay(a, B))} (the rest stays in cash)</div>` : ''}${SETUPS ? '-->' : ''}
+      ${moreTxt ? `<div class="more">${SETUPS ? 'lower buys' : 'if it keeps falling'}: ${moreTxt}</div>` : ''}
+      ${!SETUPS && (a.stop_plan || []).length ? `<div class="more">stop: <span class="red">${a.stop_plan.map((x, i) => (i ? `if it reaches RSI ${x[0]}: ` : 'after the first buy ') + pr(x[2])).join(' &middot; ')}</span></div>` : ''}
+      ${KNOW(a, far, thin)}
+      ${a.chart ? `<img src="${a.chart}?v=${encodeURIComponent(DATA.updated)}" loading="lazy" alt="${a.sym}" onerror="this.outerHTML='<div class=small>chart missing</div>'">` : ''}
+      ${SETUPS ? '' : marks('armed|' + a.kind + '|' + a.sym + '|' + DATA.updated.slice(0, 10))}
+    </div>`;
+  }).join('') : `<div class="none">${DATA.armed.length ? `None ${SETUPS && WMODE !== 'all' ? 'matching ' : ''}within ${NEAR}% of its buy (${DATA.armed.length} waiting in all: pick a wider distance${SETUPS ? ' or all names' : ''} above).` : "Nothing is set up right now."}</div>`;
+  const ACCT = r => { if (r.bot !== 'in' || r.status !== 'open' || r.acct_sold || !r.acct_paid || r.pct_now == null) return '';
+    const now = r.entry * (1 + r.pct_now / 100), p = (now / r.acct_paid - 1) * 100;
+    return `<br><span class="small ${p >= 0 ? 'green' : 'red'}">account ${p >= 0 ? '+' : ''}${p.toFixed(2)}% (${r.acct_qty} sh at ${pr(r.acct_paid)})</span>`; };
+  const LED = {}; (DATA.ledger || []).forEach(r => { LED[r.kind + '|' + r.sym + '|' + (r.bought || '').slice(0, 13)] = r; });
+  const inIt = t => { const r = LED[t.kind + '|' + t.sym + '|' + (t.bought || '').slice(0, 13)];
+    if (t.kind === 'crypto') return '<div class="more">no crypto bot: the account is not in this</div>';
+    if (!r || !r.bot) return '';
+    if (r.bot === 'in' && r.acct_sold) return '<div class="more amber"><b>the account SOLD this ' + (r.acct_by_hand ? 'by hand ' : '') + r.acct_sold.slice(5, 16) +
+      (r.acct_px ? ' at ' + pr(r.acct_px) : '') + '</b>: only the rules are still in it</div>';
+    const cap_ = sizes(t.kind)[2], eq_ = BOT && +BOT.equity;
+    const full_ = r.bot === 'in' && cap_ != null && eq_ > 0 && r.acct_paid && r.acct_qty * r.acct_paid >= 0.97 * cap_ * eq_;
+    if (full_) return '<div class="more green"><b>the account is in this trade</b></div><div class="more amber"><b>the account is at its one-stock limit</b>: ' +
+      money(r.acct_qty * r.acct_paid) + ' paid, the limit is ' + Math.round(cap_ * 100) + '% of the account (' + money(cap_ * eq_) + '), so the later buys on this card are skipped</div>';
+    return r.bot === 'in' ? '<div class="more green"><b>the account is in this trade</b></div>'
+      : '<div class="more amber"><b>the account is NOT in this trade</b>' + (r.bot_why ? ': ' + esc(r.bot_why) : '') + '</div>'; };
+  const OPEN = DATA.open.filter(t => { const r_ = LED[t.kind + '|' + t.sym + '|' + (t.bought || '').slice(0, 13)] || {kind: t.kind};
+    const sold_ = ACCT(r_) && !!r_.acct_sold; return TRACKED ? (!ACCT(r_) || sold_) : (ACCT(r_) && !sold_); });
+  $('#open').innerHTML = OPEN.length ? OPEN.map(t => { const B = bucket(t.kind); return `<div class="card">
+      <div class="head">
+        <div><span class="name">${t.sym}</span><span class="kind">${mk(t.kind)}${t.where ? ' &middot; on ' + t.where : ''} &middot; bought ${t.bought.slice(5, 16)}</span>${FIL(t)}${aged(t)}${tv(t)}</div>
+        <div class="big"><span class="lab">since buy, after costs</span><span class="val ${realNow(t) >= 0 ? 'green' : 'red'}">${realNow(t) >= 0 ? '+' : ''}${realNow(t).toFixed(2)}%</span></div>
+        <div class="big"><span class="lab">${t.kind === 'crypto' ? 'sell all on a close over' : 'sell all at'}</span><span class="val amber">${t.half_sold ? 'done' : pr(t.half_at)}</span></div>
+        <div class="big"><span class="lab">stop</span><span class="val red">${pr(t.stop)}</span></div>
+      </div>
+      ${notHeld(t) ? NOTHELD : inIt(t)}
+      ${contracts(t, B, t.entry)}
+      ${t.retest_px ? `<div class="more green">retest buy: up to ${money(bucket(t.kind) * sizes(t.kind)[1] * lw(t, 98))} waits at <b>${pr(t.retest_px)}</b> (just above the dip's low) until everything sells</div>` : ''}
+      ${t.retest_wait ? `<div class="more">retest buy: once an hourly close has RSI back above 30, up to ${money(bucket(t.kind) * sizes(t.kind)[1] * lw(t, 98))} will wait just above the dip's low</div>` : ''}
+      ${(t.stop_moves || []).map(([L, px, st]) => `<div class="more">if price reaches ${pr(px)} (RSI ${L}) move the stop sell order
+        down to <span class="red">${pr(st)}</span>${t.kind === 'crypto' && L === 20 ? ' &middot; nothing is bought there' : ''}</div>`).join('')}
+      ${t.chart ? `<img src="${t.chart}?v=${encodeURIComponent(DATA.updated)}" loading="lazy" alt="${t.sym}" onerror="this.outerHTML='<div class=small>chart missing</div>'">` : ''}
+      ${marks('open|' + t.kind + '|' + t.sym + '|' + t.bought.slice(0, 16))}
+    </div>`; }).join('') : `<div class="none">${TRACKED ? 'Nothing tracked is open.' : 'The account holds no stock trades.'}</div>`;
+  if (SETUPS) { const SH = new Set((DATA.shadow || []).map(r => r.led_key).filter(Boolean));
+    const ON = DATA.open.filter(t => t.kind !== 'crypto' && !SH.has(t.kind + '|' + t.sym + '|' + t.bought) && !t.filler && !(t.adv_buy && t.adv_buy < 30e6));
+    const LIVEKNOW = t => { const I = window.INFO || {}, o = (I.open || {})[t.sym] || {}, p = (I.past || {})[t.sym], b = o.at_buy || {};
+      const fd = String(t.bought || '').slice(0, 10); let rep = '';
+      if (p && p.day && p.day <= fd) { const gapDays = Math.round((new Date(fd) - new Date(p.day)) / 864e5);
+        if (gapDays <= 4) rep = `<div class="more amber"><b>company news:</b> it reported ${p.day} ${p.timing === 'after' ? 'after the close' : p.timing === 'before' ? 'before the open' : ''}, ` +
+          `${gapDays === 0 ? 'the morning of' : 'right before'} the first buy${p.note ? ' (' + esc(p.note) + ')' : ''}. A dip right after a report tends to go deeper.</div>`; }
+      return (o.gap != null ? `<div class="more">the day of the first buy it opened <b class="${o.gap >= 0 ? 'green' : 'red'}">${o.gap >= 0 ? '+' : ''}${o.gap}%</b> from the close before</div>` : '') + rep +
+        (b.run_pct != null ? `<div class="more"><b>${b.run_pct >= 0 ? '+' : ''}${b.run_pct}%</b> in the 20 trading days before the first buy</div>` : ''); };
+    $('#open').innerHTML = ON.length ? ON.map(t => `<div class="card">
+      <div class="head">
+        <div><span class="name">${t.sym}</span><span class="kind">${mk(t.kind)} &middot; first buy ${t.bought.slice(5, 16)}</span>${tv(t)}</div>
+        <div class="big"><span class="lab">average buy</span><span class="val green">${pr(t.entry)}</span></div>
+        <div class="big"><span class="lab">now</span><span class="val ${t.pct_now >= 0 ? 'green' : 'red'}">${t.pct_now == null ? '?' : (t.pct_now >= 0 ? '+' : '') + t.pct_now.toFixed(1) + '%'}</span></div>
+        <div class="big"><span class="lab">sale line (hourly 26 EMA)</span><span class="val amber">${pr(t.half_at)}</span></div>
+        <div class="big"><span class="lab">stop</span><span class="val red">${pr(t.stop)}</span></div>
+      </div>
+      ${BADGES(t.sym, (((window.INFO || {}).open || {})[t.sym] || {}).at_buy || {}, String(t.bought || '').slice(0, 10), t.adv_buy)}
+      <div class="more">filled so far: ${(t.levels || []).map((L, i) => (L === 98 ? 'retest' : 'RSI ' + L) + ((t.fills || [])[i] ? ' at ' + pr(t.fills[i]) : '')).join(' &middot; ')}</div>
+      ${(t.stop_moves || []).length ? `<div class="more">lower buys still waiting: ${t.stop_moves.map(([L, px]) => `${pr(px)} (RSI ${L})`).join(' &middot; ')}</div>` : ''}
+      ${t.retest_px ? `<div class="more green">retest buy waits at <b>${pr(t.retest_px)}</b> (just above the dip's low)</div>` : ''}
+      ${LIVEKNOW(t)}
+      ${t.chart ? `<img src="${t.chart}?v=${encodeURIComponent(DATA.updated)}" loading="lazy" alt="${t.sym}" onerror="this.outerHTML='<div class=small>chart missing</div>'">` : ''}
+    </div>`).join('') : '<div class="none">No setup is in its dip right now.</div>'; }
+  const TEST_TRADES = new Set((DATA.shadow || []).map(r => r.led_key).filter(Boolean));
+  const L = (DATA.ledger || []).filter(r => !r.unfilled && !TEST_TRADES.has(r.kind + '|' + r.sym + '|' + r.bought) && SHOW(r));
+  const closed = L.filter(r => r.status === 'closed');
+  const sum = closed.length ? `<div class="sub" style="margin:6px 2px">${closed.length} closed: ${closed.filter(r => realDone(r) > 0).length} won,
+    average ${(closed.reduce((a, r) => a + realDone(r), 0) / closed.length).toFixed(2)}% a trade &middot; every result is AFTER costs: fees plus
+    the price your order size would move at the account sizes above</div>` : '';
+  $('#ledger').innerHTML = L.length ? sum + `<div class="scroll"><table class="log"><tr><th>name</th><th>bought</th><th>paid</th>
+      <th>sold</th><th>result, after costs</th><th>account</th></tr>` + L.map((r, i) => `<tr class="row" data-i="${i}">
+      <td>${r.sym} <span class="kind">${mk(r.kind)}</span>${FIL(r)}</td><td>${r.bought.slice(5, 16)}</td><td>${pr(r.entry)}</td>
+      <td>${r.status === 'open' ? '<span class="amber">open</span>' : r.closed.slice(5, 16)}</td>
+      <td class="${(r.status === 'open' ? realNow(r) : realDone(r)) >= 0 ? 'green' : 'red'}">${
+        r.status === 'open' ? 'now ' + (realNow(r) >= 0 ? '+' : '') + realNow(r).toFixed(2) : (realDone(r) >= 0 ? '+' : '') + realDone(r).toFixed(2)}%${ACCT(r)}</td>
+      <td class="small">${r.bot === 'in' && r.acct_sold ? '<span class="amber">live account ' + (r.acct_by_hand ? 'sold it by hand' : 'sold it') + ' ' + r.acct_sold.slice(5, 16) +
+        (r.acct_px ? ' at ' + pr(r.acct_px) + ' (' + (r.acct_result >= 0 ? '+' : '') + r.acct_result.toFixed(2) + '% before costs)' : '') + '</span>' +
+        (r.status === 'open' ? '<br>the rules still hold it' : '') : r.bot === 'in' ? (r.status === 'open' ? '<span class="green">live account in it now</span>' : '<span class="green">live account traded it</span>') : r.bot === 'out' ? '<span class="amber">' + (r.status === 'open' ? 'live account not in it' : 'live account did not trade it') + '</span>' +
+        (r.bot_why && !(r.note && r.bot_why.startsWith('reason not recorded')) ? '<br>' + esc(r.bot_why) : '') : r.kind === 'crypto' ? 'no crypto bot' : ''}</td>
+      </tr>${r.note ? `<tr class="noterow"><td colspan="6" class="small">&#9998; ${esc(r.note)}</td></tr>` : ''}<tr class="pic" id="pic${i}" style="display:none"><td colspan="6">${r.trade_chart ?
+        `<img data-src="${r.trade_chart}" alt="${r.sym}" onerror="if(this.src)this.outerHTML='chart missing'">` : 'no drawing'}</td></tr>`).join('') + '</table></div>'
+    : `<div class="none">No trades yet.</div>`;
+  const NX = DATA.notes_extra || [];
+  if (NX.length) $('#ledger').innerHTML += `<div class="sub" style="margin:14px 2px 4px"><b>Not in the log above</b></div><div class="scroll"><table class="log">
+      <tr><th>trade</th><th>what happened</th></tr>` + NX.map(n => { const k = n.key.split('|');
+        return `<tr><td>${k[1]} <span class="kind">${mk(k[0])}</span><br>${k[2].slice(5)}:00${n.bot_only ? '<br><span class="amber">paper bot only</span>' : ''}</td>
+        <td class="small">${n.bot_only ? `bought ${n.qty} at ${pr(n.paid)} (${n.bought.slice(5)}), sold at ${pr(n.sold)} (${n.sold_at.slice(5)}):
+        <span class="${n.result >= 0 ? 'green' : 'red'}">${n.result >= 0 ? '+' : ''}${n.result.toFixed(1)}%</span><br>` : ''}${esc(n.note)}</td></tr>`; }).join('') + '</table></div>';
+  document.querySelectorAll('#ledger tr.row').forEach(tr => tr.onclick = () => {
+    const pic = $('#pic' + tr.dataset.i), img = pic.querySelector('img');
+    if (img && !img.src) img.src = img.dataset.src + '?v=' + encodeURIComponent(DATA.updated);
+    pic.style.display = pic.style.display === 'none' ? '' : 'none';
+  });
+  wire();
+  TILE.armed = DATA.armed.length; TILE.open = OPEN.length; TILE.openMiss = OPEN.filter(notHeld).length;
+  if (closed.length) {
+    TILE.closed = closed.length; TILE.won = closed.filter(r => realDone(r) > 0).length;
+    TILE.avg = closed.reduce((a, r) => a + realDone(r), 0) / closed.length;
+    TILE.since = closed.map(r => (r.bought || '').slice(0, 10)).sort()[0];
+  } else TILE.closed = TILE.avg = null;
+  tiles();
+  const st = DATA.stale || [];
+  $('#foot').innerHTML = `The bot rebuilds the cards every 15 minutes (last scan: ${(DATA.names || 0).toLocaleString()} names,
+    <span class="${DATA.errors ? 'red' : ''}">${DATA.errors || 0} errors</span>${st.length ? `, ${st.length} names skipped because their prices were too old: ${esc(st.join(', '))}` : ''}).
+    This page asks for new cards every ${EVERY_CARDS / 60000} minute${TRACKED ? '' : `, the holdings every ${EVERY_MASTER / 1000} seconds, the futures every ${EVERY_FUT / 60000} minute`}.`;
+}
+const typing = () => document.activeElement && document.activeElement.classList.contains('note');
+function load(tries = 0) {
+  if (location.protocol === 'file:') {            // opened as a file (the app's side panel), not from the server
+    $('#status').textContent = '';
+    warn('file', `This is the page FILE, not the live page. Open
+      <a href="http://localhost:5001/live" style="color:inherit;text-decoration:underline">http://localhost:5001/live</a>.`);
+    return;
+  }
+  fetch('/api/bb_live?v=' + Date.now(), {cache: 'no-store'})
+    .then(r => r.ok ? r.json() : Promise.reject(new Error('the server answered ' + r.status)))
+    .then(d => {
+      DATA = d;
+      warn('live', null);
+      if (typing()) return;
+      try { render(); warn('draw', null); }
+      catch (e) { warn('draw', `PAGE ERROR while drawing: ${esc(e.message)}`); }
+    })
+    .catch(e => {
+      if (tries < 2) return setTimeout(() => load(tries + 1), 5000);
+      if (!DATA) { $('#status').textContent = '';
+        ['#armed', '#open', '#ledger'].forEach(k => { $(k).innerHTML = '<div class="none red">NOT LOADED (see the red line at the top)</div>'; }); }
+      warn('live', `NOT LOADED: /api/bb_live (the live cards) after 3 tries: ${esc(e.message || e)} &mdash; trying again in a minute` +
+        (DATA ? '. The cards below are the last ones that loaded.' : ''));
+    });
+}
+const inp = $('#acct'); inp.value = acct();
+inp.oninput = () => { try { localStorage.setItem(ACCT_KEY, inp.value); } catch (e) {} render(); };
+fetch('/api/paper', {cache: 'no-store'}).then(r => r.ok ? r.json() : Promise.reject(new Error('the server answered ' + r.status))).then(d => {
+  BOT = d;
+  if (BOT.lever || BOT.seats) $('#lever').textContent = `at the bot's ${BOT.lever || 1}x borrowing, ${BOT.seats} trades at once (${SETUPS ? 'type your own account size' : 'the real account to start; type to change it'})`;
+  if (!typing()) { inp.value = Math.round(acct()); if (DATA) render(); }
+}).catch(e => warn('paper', `NOT LOADED: /api/paper (the live account's size and borrowing): ${esc(e.message || e)} &mdash; the cards are sized on the box's number with no borrowing`));
+if (!TRACKED) $('#cbox').style.display = 'none';
+const cinp = $('#cacct'); cinp.value = cacct();
+cinp.oninput = () => { try { localStorage.setItem('bb_cacct', cinp.value); } catch (e) {} render(); };
+fetch('/api/tradenote?set=bblive').then(r => r.json()).catch(() => ({})).then(n => { NOTES = n || {}; load(); });
+setInterval(() => load(), EVERY_CARDS);
+
+const FCH = {'1h': 'hourly', '4h': '4-hour', '1d': 'daily'};
+const FROLE = {b30: 'first buy', b25: 'RSI-25 buy', b20: 'RSI-20 buy', b98: 'retest buy', sale: 'sell', stop: 'stop', exit: 'market sale'};
+function loadFut() {
+  fetch('/api/futbot').then(r => { if (!r.ok) throw new Error('the server answered ' + r.status); return r.json(); }).then(F => {
+    const b = F.bot || {}, s = F.scan || {}, st = b.state || {}, ords = b.orders || [];
+    const mins = s.updated_epoch ? Math.round((Date.now() / 1000 - s.updated_epoch) / 60) : null;
+    const beat = F.beat && F.beat.epoch ? Math.round(Date.now() / 1000 - F.beat.epoch) : null;
+    $('#futwarn').innerHTML = ((mins != null && mins > 40) || beat == null || beat > 300) ? `<div class="warn">The futures bot is not running:
+      scan ${mins == null ? '?' : mins} min old, last look at Interactive Brokers ${beat == null ? '?' : Math.round(beat / 60)} min ago</div>` : '';
+    const ordsOf = sym => ords.filter(o => o.ref.split('|')[1] === sym).map(o =>
+      `${FROLE[o.ref.split('|')[3]] || o.ref.split('|')[3]} ${o.qty} @ ${pr(o.type === 'STP' ? o.stp : o.lmt)}`).join(' &middot; ') || '-';
+    const rows = Object.values(st).filter(x => x.status !== 'held');
+    let h = `<div class="scroll"><table class="log"><tr><th>market</th><th>chart</th><th>contract</th><th>held</th><th>orders resting at IB</th></tr>`;
+    h += rows.length ? rows.map(x => `<tr><td>${esc(x.sym.replace('_F', ''))}</td><td>${FCH[x.chart] || esc(x.chart)}</td><td>${esc(x.local || '')}</td>
+      <td>${x.status === 'held' ? x.held : '<span class="small">waiting for the dip</span>'}</td><td class="small">${ordsOf(x.sym)}</td></tr>`).join('')
+      : '<tr><td colspan="5" class="small">no futures orders waiting</td></tr>';
+    h += '</table></div>';
+    const arm = (s.armed || []).filter(a => !st[a.sym]);
+    if (arm.length) h += `<div class="sub" style="margin:8px 2px 0">Setups with no order out (too far away, too big, or no room): ` +
+      arm.map(a => `${esc(a.sym.replace('_F', ''))} ${FCH[a.chart] || ''} buy ${pr(a.buy_at)} (${a.away.toFixed(1)}% away)`).join(' &middot; ') + '</div>';
+    h += `<div class="sub" style="margin:6px 2px 0">Futures scan ${mins == null ? '?' : mins} min ago &middot; last look at IB ${beat == null ? '?' : beat + ' s'} ago &middot; <a href="/futures.html">futures page</a></div>`;
+    $('#fut').innerHTML = h;
+  }).catch(e => { $('#fut').innerHTML = ''; $('#futwarn').innerHTML = `<div class="warn">NOT LOADED: /api/futbot (the futures bot): ${esc(e.message)}</div>`; });
+}
+if (!TRACKED) { loadFut(); setInterval(loadFut, EVERY_FUT); }
+
+function loadMaster() {
+  const get = u => fetch(u).then(r => r.ok ? r.json() : null).catch(() => null);
+  Promise.all([get('/api/paper'), get('/api/paper?broker=ib'), get('/api/futbot')]).then(([A, I, F]) => {
+    const was_ = HELD ? [...HELD].sort().join() : null;
+    HELD = A && I ? new Set([...(A.positions || []), ...(I.positions || [])].map(p => String(p.symbol))) : null;
+    const rows = [], miss = [];
+    const acctName = (d, who) => `${who} ${d.mode === 'live' ? '<b class="red">REAL</b>' : 'practice'}`;
+    for (const [d, who, file] of [[A, 'Alpaca', '/api/paper'], [I, 'IB', '/api/paper?broker=ib']]) {
+      if (!d) { miss.push(`${who} stocks (${file})`); continue; }
+      for (const p of d.positions || []) {
+        const os = (d.orders || []).filter(o => o.symbol === p.symbol && o.side === 'sell');
+        let sell = null, stop = null;
+        for (const o of os) {
+          if (o.type === 'limit') sell = +o.limit_price;
+          if (o.type === 'stop') stop = +o.stop_price;
+          for (const l of o.legs || []) { if (l.type === 'stop') stop = +l.stop_price; if (l.type === 'limit') sell = +l.limit_price; }
+        }
+        const paid = +p.avg_entry_price, now = +p.current_price;
+        rows.push({acct: acctName(d, who), name: p.symbol, kind: 'stock', held: +p.qty, paid, now,
+                   pct: paid ? 100 * (now / paid - 1) : null, sell, stop});
+      }
+    }
+    if (!F) miss.push('IB futures (/api/futbot)');
+    else {
+      const b = F.bot || {}, st = b.state || {}, px = (F.scan || {}).last_px || {}, costs = b.costs || {};
+      for (const x of Object.values(st).filter(x => x.status === 'held')) {
+        const os = (b.orders || []).filter(o => o.ref.split('|')[1] === x.sym && o.action === 'SELL');
+        const sell = (os.find(o => o.type === 'LMT') || {}).lmt || null, stop = (os.find(o => o.type === 'STP') || {}).stp || null;
+        const paid = costs[String(x.con)] && x.pv ? costs[String(x.con)] / x.pv : null, now = px[x.sym] || null;
+        rows.push({acct: 'IB practice', name: `${x.sym.replace('_F', '')} <span class="small">${esc(x.local || '')} future, ${FCH[x.chart] || x.chart}</span>`,
+                   kind: 'future', held: x.held, paid, now, pct: paid && now ? 100 * (now / paid - 1) : null, sell, stop});
+      }
+    }
+    const f = v => v == null || !isFinite(v) ? '-' : pr(v);
+    let h = `<div class="scroll"><table class="log"><tr><th>account</th><th>name</th><th>held</th><th>paid</th><th>now</th><th>since buy</th><th>sell at</th><th>stop</th></tr>`;
+    h += rows.length ? rows.map(r => `<tr><td class="small">${r.acct}</td><td>${r.kind === 'stock' ? esc(r.name) : r.name}</td><td>${r.held}</td>
+      <td>${f(r.paid)}</td><td>${f(r.now)}</td><td class="${r.pct == null ? '' : r.pct >= 0 ? 'green' : 'red'}">${r.pct == null ? '-' : (r.pct >= 0 ? '+' : '') + r.pct.toFixed(2) + '%'}</td>
+      <td>${f(r.sell)}</td><td>${f(r.stop)}</td></tr>`).join('')
+      : `<tr><td colspan="8" class="small">${miss.length ? 'nothing to show from the accounts that loaded' : 'no positions in any account'}</td></tr>`;
+    h += '</table></div>';
+    const age = d => d && d.holdings_at ? Math.round(Date.now() / 1000 - d.holdings_at) : null;
+    const ages = [[A, 'Alpaca'], [I, 'IB stocks']].filter(([d]) => age(d) != null)
+      .map(([d, who]) => `${who} ${age(d) < 90 ? age(d) + ' s' : Math.round(age(d) / 60) + ' min'} old`);
+    if (ages.length) h = `<div class="sub">${ages.join(' · ')} (refreshed each minute while the market is open)</div>` + h;
+    if (miss.length) h = `<div class="warn">NOT LOADED: ${miss.join(', ')}</div>` + h;
+    $('#master').innerHTML = h;
+    TILE.held = rows.length; TILE.heldMiss = miss.length > 0; tiles();
+    if (DATA && !typing() && was_ !== (HELD ? [...HELD].sort().join() : null)) render();
+  }).catch(e => warn('master', `PAGE ERROR in the holdings list: ${esc(e.message)}`));
+}
+if (!TRACKED) { loadMaster(); setInterval(loadMaster, EVERY_MASTER); }
+</script>
+</body></html>
